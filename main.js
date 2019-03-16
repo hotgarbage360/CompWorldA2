@@ -367,7 +367,91 @@ Defender.prototype.safe = function(){
 }
 
 
+window.onload = function () {
+    var socket = io.connect("http://24.16.255.56:8888");
+  
+    var text = document.getElementById("text");
+    var saveButton = document.getElementById("save");
+    var loadButton = document.getElementById("load");
 
+    socket.on("load", function (data) {
+        loadState(data);
+    });
+  
+    saveButton.onclick = function () {
+      console.log("save");
+      text.innerHTML = "Saved."
+    //   socket.emit("save", { studentname: "Kyle Beveridge", statename: "gameState", data: "test123" });
+        saveState(socket);
+    };
+  
+    loadButton.onclick = function () {
+      console.log("load");
+      text.innerHTML = "Loaded."
+      socket.emit("load", { studentname: "Kyle Beveridge", statename: "gameState" });
+    };
+  
+  };
+
+function saveState(socket){
+    var outdata = {red:[], blue:[], redCaptured:gameEngine.redTeam.flag.captured, blueCaptured:gameEngine.blueTeam.flag.captured};
+    for(var i = 0; i<gameEngine.entities.length; i++){
+        var ent = gameEngine.entities[i];
+        if(!(ent instanceof Flag)){
+            var data = {
+                x:ent.x,
+                y:ent.y,
+                velocity:ent.velocity,
+                type: ent instanceof Attacker?"attacker":"defender",
+                hasFlag: ent instanceof Attacker?ent.hasFlag:false
+            }
+            if(ent.team === "red"){
+                outdata.red.push(data);
+            } else {
+                outdata.blue.push(data);
+            }
+        }
+    }
+    socket.emit("save", { studentname: "Kyle Beveridge", statename: "gameState", data: outdata });
+}
+
+function loadState(input){
+    var data = input.data;
+    console.log(data);
+    gameEngine.entities = [];
+    gameEngine.redTeam.flag = new Flag(gameEngine, "red");
+    gameEngine.blueTeam.flag = new Flag(gameEngine, "blue");
+    gameEngine.redTeam.flag.captured = data.redCaptured;
+    gameEngine.blueTeam.flag.captured = data.blueCaptured;
+    gameEngine.entities.push(gameEngine.blueTeam.flag);
+    gameEngine.entities.push(gameEngine.redTeam.flag);
+    data.red.forEach(obj =>{
+        var ent;
+        if(obj.type === "attacker"){
+            ent = new Attacker(gameEngine, "red");
+            ent.hasFlag = obj.hasFlag;
+        } else {
+            ent = new Defender(gameEngine, "red");
+        }
+        ent.x = obj.x;
+        ent.y = obj.y;
+        ent.velocity=obj.velocity;
+        gameEngine.addEntity(ent);
+    });
+    data.blue.forEach(obj =>{
+        var ent;
+        if(obj.type === "attacker"){
+            ent = new Attacker(gameEngine, "blue");
+            ent.hasFlag = obj.hasFlag;
+        } else {
+            ent = new Defender(gameEngine, "blue");
+        }
+        ent.x = obj.x;
+        ent.y = obj.y;
+        ent.velocity=obj.velocity;
+        gameEngine.addEntity(ent);
+    });
+}
 
 
 
@@ -376,7 +460,7 @@ var friction = 1;
 var acceleration = 200000;
 var maxSpeed = 250;
 var maxSpeedDefender = 225;
-
+var gameEngine;
 var ASSET_MANAGER = new AssetManager();
 
 // ASSET_MANAGER.queueDownload("./img/960px-Blank_Go_board.png");
@@ -387,7 +471,7 @@ ASSET_MANAGER.downloadAll(function () {
     // console.log("starting up da sheild");
     var canvas = document.getElementById('gameWorld');
     var ctx = canvas.getContext('2d');
-    var gameEngine = new GameEngine();
+    gameEngine = new GameEngine();
     for(var i = 0; i<7; i++){
         gameEngine.addEntity(new Attacker(gameEngine, "red"));
     }
